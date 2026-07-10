@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Điểm Danh Chi Đoàn Thôn Tiến Hòa</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         body {
@@ -33,8 +35,22 @@
             text-align: center;
             font-size: 1.2rem;
             color: #2980b9;
-            margin-bottom: 25px;
+            margin-bottom: 15px;
             font-weight: bold;
+        }
+        .session-selector {
+            text-align: center;
+            margin-bottom: 25px;
+            font-size: 1.05rem;
+        }
+        .session-selector select {
+            padding: 6px 12px;
+            font-size: 1rem;
+            border-radius: 5px;
+            border: 2px solid #3498db;
+            font-weight: bold;
+            color: #2c3e50;
+            cursor: pointer;
         }
         table {
             width: 100%;
@@ -49,8 +65,6 @@
         th {
             background-color: #34495e;
             color: white;
-            position: sticky;
-            top: 0;
         }
         tr:hover {
             background-color: #f8f9fa;
@@ -122,6 +136,16 @@
 <div class="container">
     <h2>ĐIỂM DANH CHI ĐOÀN THÔN TIẾN HÒA</h2>
     <div class="date-box" id="currentDate">Ngày: --/--/----</div>
+    
+    <div class="session-selector">
+        <label for="sessionSelect">Chọn lượt điểm danh: </label>
+        <select id="sessionSelect" onchange="changeSession()">
+            <option value="Lan 1">Lần 1 (Đầu buổi)</option>
+            <option value="Lan 2">Lần 2 (Cuối buổi)</option>
+            <option value="Sang">Buổi Sáng</option>
+            <option value="Chieu">Buổi Chiều</option>
+        </select>
+    </div>
 
     <table>
         <thead>
@@ -132,69 +156,55 @@
             </tr>
         </thead>
         <tbody id="memberList">
-            </tbody>
+            <tr><td colspan="3" style="text-align:center;">Đang tải dữ liệu đám mây...</td></tr>
+        </tbody>
     </table>
 
     <div class="history-box" id="historyStatus">
-        Dữ liệu lịch sử: Đang kiểm tra...
+        Dữ liệu lịch sử: Đang đồng bộ với cơ sở dữ liệu trực tuyến...
     </div>
 
     <div class="action-bars">
-        <button class="btn-action btn-save" onclick="saveTodayAttendance()">1. Lưu Ngày Hôm Nay</button>
+        <button class="btn-action btn-save" onclick="saveTodayAttendance()">1. Lưu Lượt Này (Đám Mây)</button>
         <button class="btn-action btn-excel" onclick="exportToExcel()">2. Tải File Excel Thống Kê</button>
         <button class="btn-action btn-reset" onclick="resetAllData()">Xóa hết lịch sử</button>
     </div>
 </div>
 
 <script>
-    // 1. DANH SÁCH 42 THÀNH VIÊN ĐƯỢC LẤY TỪ ẢNH CỦA BẠN
+    // == BẮT ĐẦU THAY THẾ CẤU HÌNH FIREBASE CỦA BẠN VÀO ĐÂY ==
+    const firebaseConfig = {
+  apiKey: "AIzaSyDSWXvmMAsLI5u1yvcjiv7M_IW0yet-UEg",
+  authDomain: "diem-danh-tien-hoa.firebaseapp.com",
+  databaseURL: "https://diem-danh-tien-hoa-default-rtdb.firebaseio.com",
+  projectId: "diem-danh-tien-hoa",
+  storageBucket: "diem-danh-tien-hoa.firebasestorage.app",
+  messagingSenderId: "767668395362",
+  appId: "1:767668395362:web:2f6846fa92be3725c7603b"
+};
+    // == KẾT THÚC THAY THẾ ==
+
+    // Khởi tạo Firebase
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
     const members = [
-        "Nguyễn Trần Thảo Nguyên",
-        "Trần Văn Sáng",
-        "Lê Minh Thiều",
-        "Kiều Đình Nam",
-        "Nguyễn Diệp Tú",
-        "Trần Hữu Thịnh",
-        "Hoàng Khánh Ngọc",
-        "Cao Đức Huy",
-        "Nguyễn Thị Quỳnh Nhi",
-        "Lê Nguyễn Minh Hằng",
-        "Lê Minh Đăng",
-        "Phạm Thị Thu Hiền",
-        "Nguyễn Anh Dũng",
-        "Nguyễn Hà Linh",
-        "Nguyễn Bảo Nam",
-        "Nguyễn Lê Đăng Đán",
-        "Nguyễn Đức Huy",
-        "Đinh Gia Như",
-        "Lương Viết Dũng",
-        "Phan Viết Hào",
-        "Nguyễn Hoài Nam",
-        "Lương Viết Thành",
-        "Phan Khánh Linh",
-        "Nguyễn Tuấn Sang",
-        "Nguyễn Ngọc Ánh",
-        "Nguyễn Hoàng Gia Bảo",
-        "Trần Anh Duy",
-        "Vũ Uyên Ly",
-        "Đinh Phương Bắc",
-        "Lê Thảo My",
-        "Lê Trà My",
-        "Nguyễn Viết Đề",
-        "Nguyễn Đăng Duy",
-        "Nguyễn Thị Quỳnh Loan",
-        "Lê Minh Thắng",
-        "Nguyễn Bảo Thi",
-        "Trần Minh Hưng",
-        "Phạm Phương Vy",
-        "Nguyễn Anh Quốc",
-        "Bùi Mai Phương",
-        "Nguyễn Ngọc Hà",
-        "Nguyễn Thị Thanh Hòa"
+        "Nguyễn Trần Thảo Nguyên", "Trần Văn Sáng", "Lê Minh Thiều", "Kiều Đình Nam",
+        "Nguyễn Diệp Tú", "Trần Hữu Thịnh", "Hoàng Khánh Ngọc", "Cao Đức Huy",
+        "Nguyễn Thị Quỳnh Nhi", "Lê Nguyễn Minh Hằng", "Lê Minh Đăng", "Phạm Thị Thu Hiền",
+        "Nguyễn Anh Dũng", "Nguyễn Hà Linh", "Nguyễn Bảo Nam", "Nguyễn Lê Đăng Đán",
+        "Nguyễn Đức Huy", "Đinh Gia Như", "Lương Viết Dũng", "Phan Viết Hào",
+        "Nguyễn Hoài Nam", "Lương Viết Thành", "Phan Khánh Linh", "Nguyễn Tuấn Sang",
+        "Nguyễn Ngọc Ánh", "Nguyễn Hoàng Gia Bảo", "Trần Anh Duy", "Vũ Uyên Ly",
+        "Đinh Phương Bắc", "Lê Thảo My", "Lê Trà My", "Nguyễn Viết Đề",
+        "Nguyễn Đăng Duy", "Nguyễn Thị Quỳnh Loan", "Lê Minh Thắng", "Nguyễn Bảo Thi",
+        "Trần Minh Hưng", "Phạm Phương Vy", "Nguyễn Anh Quốc", "Bùi Mai Phương",
+        "Nguyễn Ngọc Hà", "Nguyễn Thị Thanh Hòa"
     ];
 
-    let todayStr = "";
-    let attendanceHistory = JSON.parse(localStorage.getItem("attendance_history")) || {};
+    let baseDateStr = ""; // Lưu ngày dạng DD-MM-YYYY
+    let currentKeyStr = ""; // Lưu khóa dạng DD-MM-YYYY_Lan-1
+    let attendanceHistory = {};
     let todayAttendance = {};
 
     function initDate() {
@@ -202,27 +212,58 @@
         const dd = String(today.getDate()).padStart(2, '0');
         const mm = String(today.getMonth() + 1).padStart(2, '0');
         const yyyy = today.getFullYear();
-        todayStr = `${dd}/${mm}/${yyyy}`;
-        document.getElementById('currentDate').innerText = `Hôm nay: ${todayStr}`;
+        baseDateStr = `${dd}-${mm}-${yyyy}`;
+        
+        document.getElementById('currentDate').innerText = `Hôm nay: ${dd}/${mm}/${yyyy}`;
+        updateCurrentKey();
     }
 
-    function initData() {
+    function updateCurrentKey() {
+        const session = document.getElementById('sessionSelect').value;
+        // Tạo khóa lưu trữ trên Firebase riêng biệt, ví dụ: "10-07-2026_Lan-1"
+        currentKeyStr = `${baseDateStr}_${session}`;
+    }
+
+    // Khi người dùng đổi lựa chọn "Lần 1" sang "Lần 2" trên màn hình
+    function changeSession() {
+        updateCurrentKey();
+        // Cập nhật lại danh sách điểm danh tạm thời ứng với lượt được chọn
         members.forEach(name => {
-            if (!attendanceHistory[name]) {
-                attendanceHistory[name] = {};
-            }
-            todayAttendance[name] = attendanceHistory[name][todayStr] || "";
+            todayAttendance[name] = (attendanceHistory[name] && attendanceHistory[name][currentKeyStr]) || "";
         });
-        updateHistoryStatus();
+        renderMemberList();
+    }
+
+    function listenToFirebase() {
+        database.ref('attendance_history').on('value', (snapshot) => {
+            attendanceHistory = snapshot.val() || {};
+            
+            // Khởi tạo/Cập nhật dữ liệu cho lượt hiện tại
+            members.forEach(name => {
+                if (!attendanceHistory[name]) {
+                    attendanceHistory[name] = {};
+                }
+                todayAttendance[name] = attendanceHistory[name][currentKeyStr] || "";
+            });
+
+            updateHistoryStatus();
+            renderMemberList();
+        });
     }
 
     function updateHistoryStatus() {
         const sampleName = members[0];
-        const savedDates = Object.keys(attendanceHistory[sampleName] || {});
-        if(savedDates.length > 0) {
-            document.getElementById('historyStatus').innerText = `Đã lưu dữ liệu của ${savedDates.length} ngày: [${savedDates.join(", ")}]. Bạn có thể điểm danh tiếp ngày hôm nay rồi xuất file Excel tổng hợp.`;
+        const savedKeys = Object.keys(attendanceHistory[sampleName] || {});
+        if(savedKeys.length > 0) {
+            let displayKeys = savedKeys.map(k => {
+                let parts = k.split('_');
+                let dateFormatted = parts[0].replace(/-/g, '/');
+                let sessionText = parts[1] === "Lan 1" ? "Lần 1" : parts[1] === "Lan 2" ? "Lần 2" : parts[1] === "Sang" ? "Sáng" : "Chiều";
+                return `${dateFormatted} (${sessionText})`;
+            });
+            document.getElementById('historyStatus').innerText = `Đám mây online đang lưu dữ liệu của ${savedKeys.length} lượt: [${displayKeys.join(", ")}]. Máy tính và điện thoại đã đồng bộ!`;
         } else {
-            document.getElementById('historyStatus').innerText = "Chưa có dữ liệu lịch sử nào được lưu. Hãy tiến hành điểm danh ngày đầu tiên!";
+            document.getElementById('historyStatus').innerText = "Chưa có dữ liệu lịch sử trên đám mây. Hãy tiến hành điểm danh!";
         }
     }
 
@@ -238,8 +279,8 @@
                 <td class="name">${name}</td>
                 <td>
                     <div class="status-group">
-                        <button class="btn-status ${currentStatus === 'X' ? 'active-x' : ''}" onclick="toggleStatus('${name}', 'X')">X (Có mặt)</button>
-                        <button class="btn-status ${currentStatus === 'P' ? 'active-p' : ''}" onclick="toggleStatus('${name}', 'P')">P (Phép)</button>
+                        <button class="btn-status ${currentStatus === 'X' ? 'active-x' : ''}" onclick="toggleStatus('${name}', 'X')">X</button>
+                        <button class="btn-status ${currentStatus === 'P' ? 'active-p' : ''}" onclick="toggleStatus('${name}', 'P')">P</button>
                     </div>
                 </td>
             `;
@@ -257,20 +298,28 @@
     }
 
     function saveTodayAttendance() {
+        const sessionLabel = document.getElementById('sessionSelect').options[document.getElementById('sessionSelect').selectedIndex].text;
+        
         members.forEach(name => {
-            attendanceHistory[name][todayStr] = todayAttendance[name];
+            attendanceHistory[name][currentKeyStr] = todayAttendance[name];
         });
-        localStorage.setItem("attendance_history", JSON.stringify(attendanceHistory));
-        updateHistoryStatus();
-        alert(`Đã lưu dữ liệu điểm danh ngày ${todayStr} thành công!`);
+        
+        database.ref('attendance_history').set(attendanceHistory)
+            .then(() => {
+                alert(`Đã ĐỒNG BỘ dữ liệu điểm danh lượt [ ${sessionLabel} ] ngày hôm nay lên đám mây thành công!`);
+            })
+            .catch((error) => {
+                alert("Lỗi đồng bộ: " + error.message);
+            });
     }
 
     function exportToExcel() {
-        let allDates = new Set();
+        let allKeys = new Set();
         members.forEach(name => {
-            Object.keys(attendanceHistory[name]).forEach(date => allDates.add(date));
+            Object.keys(attendanceHistory[name] || {}).forEach(key => allKeys.add(key));
         });
-        let sortedDates = Array.from(allDates);
+        // Sắp xếp các cột theo thứ tự lịch sử
+        let sortedKeys = Array.from(allKeys).sort();
 
         let excelRows = [];
 
@@ -279,39 +328,40 @@
                 "STT": index + 1,
                 "Họ và Tên": name
             };
-            sortedDates.forEach(date => {
-                rowData[date] = attendanceHistory[name][date] || ""; 
+            sortedKeys.forEach(key => {
+                let parts = key.split('_');
+                let dateHeader = parts[0].replace(/-/g, '/');
+                let sessionHeader = parts[1] === "Lan 1" ? "Lần 1" : parts[1] === "Lan 2" ? "Lần 2" : parts[1] === "Sang" ? "Sáng" : "Chiều";
+                
+                let excelColumnName = `${dateHeader} (${sessionHeader})`;
+                rowData[excelColumnName] = attendanceHistory[name][key] || ""; 
             });
             excelRows.push(rowData);
         });
 
-        if(excelRows.length === 0 || sortedDates.length === 0) {
-            alert("Chưa có dữ liệu lịch sử! Vui lòng tích chọn X/P rồi nhấn nút số 1 'Lưu Ngày Hôm Nay' trước.");
+        if(excelRows.length === 0 || sortedKeys.length === 0) {
+            alert("Chưa có dữ liệu để xuất Excel!");
             return;
         }
 
         const worksheet = XLSX.utils.json_to_sheet(excelRows);
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, "Tổng Hợp Điểm Danh");
-
         XLSX.writeFile(workbook, `DiemDanh_ChiDoan_ThonTienHoa.xlsx`);
     }
 
     function resetAllData() {
-        if(confirm("Bạn có chắc chắn muốn xóa TOÀN BỘ lịch sử của tất cả các ngày trước đó không?")) {
-            localStorage.removeItem("attendance_history");
-            attendanceHistory = {};
-            todayAttendance = {};
-            initData();
-            renderMemberList();
-            alert("Đã xóa sạch lịch sử thành công.");
+        if(confirm("Bạn có chắc chắn muốn XÓA SẠCH TOÀN BỘ lịch sử điểm danh trên đám mây không?")) {
+            database.ref('attendance_history').remove()
+                .then(() => {
+                    alert("Đã xóa sạch dữ liệu đám mây.");
+                });
         }
     }
 
     window.onload = function() {
         initDate();
-        initData();
-        renderMemberList();
+        listenToFirebase();
     };
 </script>
 
