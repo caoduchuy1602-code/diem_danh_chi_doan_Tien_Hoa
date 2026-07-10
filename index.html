@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Điểm Danh Chi Đoàn Thôn Tiến Hòa</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+        }
+        h2 {
+            text-align: center;
+            color: #d35400; 
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 1.6rem;
+        }
+        .date-box {
+            text-align: center;
+            font-size: 1.2rem;
+            color: #2980b9;
+            margin-bottom: 25px;
+            font-weight: bold;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 25px;
+        }
+        th, td {
+            padding: 10px 15px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        th {
+            background-color: #34495e;
+            color: white;
+            position: sticky;
+            top: 0;
+        }
+        tr:hover {
+            background-color: #f8f9fa;
+        }
+        .stt { width: 8%; text-align: center; }
+        .name { width: 50%; font-weight: 500; font-size: 1.05rem; }
+        .status-group {
+            width: 42%;
+            display: flex;
+            gap: 12px;
+        }
+        .btn-status {
+            padding: 6px 16px;
+            border: 2px solid #bdc3c7;
+            background-color: #fff;
+            cursor: pointer;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+        }
+        .btn-status.active-x {
+            background-color: #2ecc71;
+            color: white;
+            border-color: #2ecc71;
+            box-shadow: 0 2px 5px rgba(46,204,113,0.3);
+        }
+        .btn-status.active-p {
+            background-color: #f1c40f;
+            color: white;
+            border-color: #f1c40f;
+            box-shadow: 0 2px 5px rgba(241,196,15,0.3);
+        }
+        .action-bars {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .btn-action {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+            text-align: center;
+        }
+        .btn-save { background-color: #27ae60; color: white; }
+        .btn-save:hover { background-color: #219653; }
+        .btn-excel { background-color: #2980b9; color: white; }
+        .btn-excel:hover { background-color: #2471a3; }
+        .btn-reset { background-color: #e74c3c; color: white; max-width: 150px; }
+        .btn-reset:hover { background-color: #c0392b; }
+        
+        .history-box {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e8f4f8;
+            border-left: 5px solid #2980b9;
+            border-radius: 4px;
+            font-size: 0.95rem;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>ĐIỂM DANH CHI ĐOÀN THÔN TIẾN HÒA</h2>
+    <div class="date-box" id="currentDate">Ngày: --/--/----</div>
+
+    <table>
+        <thead>
+            <tr>
+                <th class="stt">STT</th>
+                <th class="name">Họ và Tên Đoàn Viên</th>
+                <th>Điểm danh hôm nay</th>
+            </tr>
+        </thead>
+        <tbody id="memberList">
+            </tbody>
+    </table>
+
+    <div class="history-box" id="historyStatus">
+        Dữ liệu lịch sử: Đang kiểm tra...
+    </div>
+
+    <div class="action-bars">
+        <button class="btn-action btn-save" onclick="saveTodayAttendance()">1. Lưu Ngày Hôm Nay</button>
+        <button class="btn-action btn-excel" onclick="exportToExcel()">2. Tải File Excel Thống Kê</button>
+        <button class="btn-action btn-reset" onclick="resetAllData()">Xóa hết lịch sử</button>
+    </div>
+</div>
+
+<script>
+    // 1. DANH SÁCH 42 THÀNH VIÊN ĐƯỢC LẤY TỪ ẢNH CỦA BẠN
+    const members = [
+        "Nguyễn Trần Thảo Nguyên",
+        "Trần Văn Sáng",
+        "Lê Minh Thiều",
+        "Kiều Đình Nam",
+        "Nguyễn Diệp Tú",
+        "Trần Hữu Thịnh",
+        "Hoàng Khánh Ngọc",
+        "Cao Đức Huy",
+        "Nguyễn Thị Quỳnh Nhi",
+        "Lê Nguyễn Minh Hằng",
+        "Lê Minh Đăng",
+        "Phạm Thị Thu Hiền",
+        "Nguyễn Anh Dũng",
+        "Nguyễn Hà Linh",
+        "Nguyễn Bảo Nam",
+        "Nguyễn Lê Đăng Đán",
+        "Nguyễn Đức Huy",
+        "Đinh Gia Như",
+        "Lương Viết Dũng",
+        "Phan Viết Hào",
+        "Nguyễn Hoài Nam",
+        "Lương Viết Thành",
+        "Phan Khánh Linh",
+        "Nguyễn Tuấn Sang",
+        "Nguyễn Ngọc Ánh",
+        "Nguyễn Hoàng Gia Bảo",
+        "Trần Anh Duy",
+        "Vũ Uyên Ly",
+        "Đinh Phương Bắc",
+        "Lê Thảo My",
+        "Lê Trà My",
+        "Nguyễn Viết Đề",
+        "Nguyễn Đăng Duy",
+        "Nguyễn Thị Quỳnh Loan",
+        "Lê Minh Thắng",
+        "Nguyễn Bảo Thi",
+        "Trần Minh Hưng",
+        "Phạm Phương Vy",
+        "Nguyễn Anh Quốc",
+        "Bùi Mai Phương",
+        "Nguyễn Ngọc Hà",
+        "Nguyễn Thị Thanh Hòa"
+    ];
+
+    let todayStr = "";
+    let attendanceHistory = JSON.parse(localStorage.getItem("attendance_history")) || {};
+    let todayAttendance = {};
+
+    function initDate() {
+        const today = new Date();
+        const dd = String(today.getDate()).padStart(2, '0');
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const yyyy = today.getFullYear();
+        todayStr = `${dd}/${mm}/${yyyy}`;
+        document.getElementById('currentDate').innerText = `Hôm nay: ${todayStr}`;
+    }
+
+    function initData() {
+        members.forEach(name => {
+            if (!attendanceHistory[name]) {
+                attendanceHistory[name] = {};
+            }
+            todayAttendance[name] = attendanceHistory[name][todayStr] || "";
+        });
+        updateHistoryStatus();
+    }
+
+    function updateHistoryStatus() {
+        const sampleName = members[0];
+        const savedDates = Object.keys(attendanceHistory[sampleName] || {});
+        if(savedDates.length > 0) {
+            document.getElementById('historyStatus').innerText = `Đã lưu dữ liệu của ${savedDates.length} ngày: [${savedDates.join(", ")}]. Bạn có thể điểm danh tiếp ngày hôm nay rồi xuất file Excel tổng hợp.`;
+        } else {
+            document.getElementById('historyStatus').innerText = "Chưa có dữ liệu lịch sử nào được lưu. Hãy tiến hành điểm danh ngày đầu tiên!";
+        }
+    }
+
+    function renderMemberList() {
+        const tbody = document.getElementById('memberList');
+        tbody.innerHTML = "";
+
+        members.forEach((name, index) => {
+            const currentStatus = todayAttendance[name];
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="stt">${index + 1}</td>
+                <td class="name">${name}</td>
+                <td>
+                    <div class="status-group">
+                        <button class="btn-status ${currentStatus === 'X' ? 'active-x' : ''}" onclick="toggleStatus('${name}', 'X')">X (Có mặt)</button>
+                        <button class="btn-status ${currentStatus === 'P' ? 'active-p' : ''}" onclick="toggleStatus('${name}', 'P')">P (Phép)</button>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function toggleStatus(name, status) {
+        if (todayAttendance[name] === status) {
+            todayAttendance[name] = ""; 
+        } else {
+            todayAttendance[name] = status;
+        }
+        renderMemberList();
+    }
+
+    function saveTodayAttendance() {
+        members.forEach(name => {
+            attendanceHistory[name][todayStr] = todayAttendance[name];
+        });
+        localStorage.setItem("attendance_history", JSON.stringify(attendanceHistory));
+        updateHistoryStatus();
+        alert(`Đã lưu dữ liệu điểm danh ngày ${todayStr} thành công!`);
+    }
+
+    function exportToExcel() {
+        let allDates = new Set();
+        members.forEach(name => {
+            Object.keys(attendanceHistory[name]).forEach(date => allDates.add(date));
+        });
+        let sortedDates = Array.from(allDates);
+
+        let excelRows = [];
+
+        members.forEach((name, index) => {
+            let rowData = {
+                "STT": index + 1,
+                "Họ và Tên": name
+            };
+            sortedDates.forEach(date => {
+                rowData[date] = attendanceHistory[name][date] || ""; 
+            });
+            excelRows.push(rowData);
+        });
+
+        if(excelRows.length === 0 || sortedDates.length === 0) {
+            alert("Chưa có dữ liệu lịch sử! Vui lòng tích chọn X/P rồi nhấn nút số 1 'Lưu Ngày Hôm Nay' trước.");
+            return;
+        }
+
+        const worksheet = XLSX.utils.json_to_sheet(excelRows);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Tổng Hợp Điểm Danh");
+
+        XLSX.writeFile(workbook, `DiemDanh_ChiDoan_ThonTienHoa.xlsx`);
+    }
+
+    function resetAllData() {
+        if(confirm("Bạn có chắc chắn muốn xóa TOÀN BỘ lịch sử của tất cả các ngày trước đó không?")) {
+            localStorage.removeItem("attendance_history");
+            attendanceHistory = {};
+            todayAttendance = {};
+            initData();
+            renderMemberList();
+            alert("Đã xóa sạch lịch sử thành công.");
+        }
+    }
+
+    window.onload = function() {
+        initDate();
+        initData();
+        renderMemberList();
+    };
+</script>
+
+</body>
+</html>
