@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Điểm Danh Chi Đoàn Thôn Tiến Hòa</title>
+    <!-- Tải các thư viện core Firebase và Excel -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -51,6 +52,23 @@
             font-weight: bold;
             color: #2c3e50;
             cursor: pointer;
+        }
+        .toggle-container {
+            text-align: right;
+            margin-bottom: 15px;
+        }
+        .btn-toggle {
+            background-color: #7f8c8d;
+            color: white;
+            border: none;
+            padding: 8px 14px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        .btn-toggle:hover {
+            background-color: #95a5a6;
         }
         table {
             width: 100%;
@@ -147,47 +165,58 @@
         </select>
     </div>
 
-    <table>
-        <thead>
-            <tr>
-                <th class="stt">STT</th>
-                <th class="name">Họ và Tên Đoàn Viên</th>
-                <th>Điểm danh hôm nay</th>
-            </tr>
-        </thead>
-        <tbody id="memberList">
-            <tr><td colspan="3" style="text-align:center;">Đang tải dữ liệu đám mây...</td></tr>
-        </tbody>
-    </table>
+    <!-- Nút chức năng Ẩn/Hiện danh sách -->
+    <div class="toggle-container">
+        <button class="btn-toggle" id="btnToggle" onclick="toggleTableVisibility()">Ẩn Danh Sách</button>
+    </div>
+
+    <!-- Vùng bao bọc bảng danh sách -->
+    <div id="tableWrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th class="stt">STT</th>
+                    <th class="name">Họ và Tên Đoàn Viên</th>
+                    <th>Điểm danh hôm nay</th>
+                </tr>
+            </thead>
+            <tbody id="memberList">
+                <tr><td colspan="3" style="text-align:center;">Đang tải dữ liệu đám mây...</td></tr>
+            </tbody>
+        </table>
+    </div>
 
     <div class="history-box" id="historyStatus">
         Dữ liệu lịch sử: Đang đồng bộ với cơ sở dữ liệu trực tuyến...
     </div>
 
     <div class="action-bars">
-        <button class="btn-action btn-save" onclick="saveTodayAttendance()">1. Lưu Lượt Này (Đám Mây)</button>
+        <button class="btn-action btn-save" onclick="validateOTPBeforeAction('save')">1. Lưu Lượt Này (Đám Mây)</button>
         <button class="btn-action btn-excel" onclick="exportToExcel()">2. Tải File Excel Thống Kê</button>
-        <button class="btn-action btn-reset" onclick="resetAllData()">Xóa hết lịch sử</button>
+        <button class="btn-action btn-reset" onclick="validateOTPBeforeAction('reset')">Xóa hết lịch sử</button>
     </div>
 </div>
 
 <script>
-    // == BẮT ĐẦU THAY THẾ CẤU HÌNH FIREBASE CỦA BẠN VÀO ĐÂY ==
+    // == CẤU HÌNH ĐƯỜNG TRUYỀN FIREBASE ==
     const firebaseConfig = {
-  apiKey: "AIzaSyDSWXvmMAsLI5u1yvcjiv7M_IW0yet-UEg",
-  authDomain: "diem-danh-tien-hoa.firebaseapp.com",
-  databaseURL: "https://diem-danh-tien-hoa-default-rtdb.firebaseio.com",
-  projectId: "diem-danh-tien-hoa",
-  storageBucket: "diem-danh-tien-hoa.firebasestorage.app",
-  messagingSenderId: "767668395362",
-  appId: "1:767668395362:web:2f6846fa92be3725c7603b"
-};
-    // == KẾT THÚC THAY THẾ ==
+        apiKey: "AIzaSyDSWXvmMAsLI5u1yvcjiv7M_IW0yet-UEg",
+        authDomain: "diem-danh-tien-hoa.firebaseapp.com",
+        databaseURL: "https://diem-danh-tien-hoa-default-rtdb.firebaseio.com",
+        projectId: "diem-danh-tien-hoa",
+        storageBucket: "diem-danh-tien-hoa.firebasestorage.app",
+        messagingSenderId: "767668395362",
+        appId: "1:767668395362:web:2f6846fa92be3725c7603b"
+    };
 
-    // Khởi tạo Firebase
+    // Khởi tạo app
     firebase.initializeApp(firebaseConfig);
     const database = firebase.database();
 
+    // CÀI ĐẶT MÃ OTP BẢO MẬT (Bạn có thể sửa chuỗi số này theo ý mình)
+    const SECRET_OTP_CODE = "190590";
+
+    // Danh sách 42 Đoàn viên Chi Đoàn thôn Tiến Hòa
     const members = [
         "Nguyễn Trần Thảo Nguyên", "Trần Văn Sáng", "Lê Minh Thiều", "Kiều Đình Nam",
         "Nguyễn Diệp Tú", "Trần Hữu Thịnh", "Hoàng Khánh Ngọc", "Cao Đức Huy",
@@ -202,11 +231,17 @@
         "Nguyễn Ngọc Hà", "Nguyễn Thị Thanh Hòa"
     ];
 
-    let baseDateStr = ""; // Lưu ngày dạng DD-MM-YYYY
-    let currentKeyStr = ""; // Lưu khóa dạng DD-MM-YYYY_Lan-1
+    let baseDateStr = ""; 
+    let currentKeyStr = ""; 
     let attendanceHistory = {};
     let todayAttendance = {};
+    let isTableVisible = true;
 
+    // Biến quản lý trạng thái sai mã OTP
+    let wrongCount = 0;
+    let isLocked = false;
+
+    // Thiết lập ngày tháng năm hiện tại hệ thống
     function initDate() {
         const today = new Date();
         const dd = String(today.getDate()).padStart(2, '0');
@@ -220,25 +255,23 @@
 
     function updateCurrentKey() {
         const session = document.getElementById('sessionSelect').value;
-        // Tạo khóa lưu trữ trên Firebase riêng biệt, ví dụ: "10-07-2026_Lan-1"
         currentKeyStr = `${baseDateStr}_${session}`;
     }
 
-    // Khi người dùng đổi lựa chọn "Lần 1" sang "Lần 2" trên màn hình
+    // Khi thay đổi lượt (Lần 1, Lần 2, Sáng, Chiều) trên giao diện
     function changeSession() {
         updateCurrentKey();
-        // Cập nhật lại danh sách điểm danh tạm thời ứng với lượt được chọn
         members.forEach(name => {
             todayAttendance[name] = (attendanceHistory[name] && attendanceHistory[name][currentKeyStr]) || "";
         });
         renderMemberList();
     }
 
+    // Lắng nghe dữ liệu thay đổi trực tiếp từ Firebase đám mây
     function listenToFirebase() {
         database.ref('attendance_history').on('value', (snapshot) => {
             attendanceHistory = snapshot.val() || {};
             
-            // Khởi tạo/Cập nhật dữ liệu cho lượt hiện tại
             members.forEach(name => {
                 if (!attendanceHistory[name]) {
                     attendanceHistory[name] = {};
@@ -251,6 +284,7 @@
         });
     }
 
+    // Hiển thị trạng thái các phiên đã lưu dưới thanh lịch sử
     function updateHistoryStatus() {
         const sampleName = members[0];
         const savedKeys = Object.keys(attendanceHistory[sampleName] || {});
@@ -267,6 +301,7 @@
         }
     }
 
+    // Đổ danh sách Đoàn viên ra bảng biểu HTML
     function renderMemberList() {
         const tbody = document.getElementById('memberList');
         tbody.innerHTML = "";
@@ -288,6 +323,7 @@
         });
     }
 
+    // Đổi qua lại trạng thái đi học (X) hoặc có phép (P)
     function toggleStatus(name, status) {
         if (todayAttendance[name] === status) {
             todayAttendance[name] = ""; 
@@ -297,7 +333,54 @@
         renderMemberList();
     }
 
-    function saveTodayAttendance() {
+    // Đóng/Mở bảng danh sách đoàn viên
+    function toggleTableVisibility() {
+        const tableWrapper = document.getElementById('tableWrapper');
+        const btnToggle = document.getElementById('btnToggle');
+        
+        if (isTableVisible) {
+            tableWrapper.style.display = 'none';
+            btnToggle.innerText = 'Hiện Danh Sách';
+            isTableVisible = false;
+        } else {
+            tableWrapper.style.display = 'block';
+            btnToggle.innerText = 'Ẩn Danh Sách';
+            isTableVisible = true;
+        }
+    }
+
+    // == LOGIC KIỂM TRA MÃ OTP VÀ GIỚI HẠN SAI QUÁ 3 LẦN ==
+    function validateOTPBeforeAction(actionType) {
+        // Nếu hệ thống đã bị khóa do cố tình nhập sai quá nhiều
+        if (isLocked) {
+            alert("🔒 Tính năng này đã bị khóa do nhập sai OTP quá 3 lần.Chúc bạn may mắn lần sau ^^");
+            return;
+        }
+
+        const userOTP = prompt(`XÁC THỰC BẢO MẬT: Nhập mã OTP để thực hiện (Đã sai: ${wrongCount}/3 lần):`);
+        
+        if (userOTP === null) return; // Nhấn hủy lệnh
+
+        if (userOTP === SECRET_OTP_CODE) {
+            wrongCount = 0; // Đặt lại bộ đếm nếu nhập chuẩn xác
+            if (actionType === 'save') {
+                executeSaveData();
+            } else if (actionType === 'reset') {
+                executeResetData();
+            }
+        } else {
+            wrongCount++;
+            if (wrongCount >= 3) {
+                isLocked = true;
+                alert("❌ Bạn đã nhập sai mã OTP 3 lần liên tiếp! Chức năng lưu/xóa dữ liệu đã bị KHÓA CỨNG.");
+            } else {
+                alert(`❌ Mã OTP nhập vào không chính xác! Bạn còn ${3 - wrongCount} lần thử.`);
+            }
+        }
+    }
+
+    // Thực hiện đẩy dữ liệu lên Firebase
+    function executeSaveData() {
         const sessionLabel = document.getElementById('sessionSelect').options[document.getElementById('sessionSelect').selectedIndex].text;
         
         members.forEach(name => {
@@ -306,19 +389,32 @@
         
         database.ref('attendance_history').set(attendanceHistory)
             .then(() => {
-                alert(`Đã ĐỒNG BỘ dữ liệu điểm danh lượt [ ${sessionLabel} ] ngày hôm nay lên đám mây thành công!`);
+                alert(`Đã ĐỒNG BỘ dữ liệu điểm danh lượt [ ${sessionLabel} ] lên đám mây thành công!`);
             })
             .catch((error) => {
-                alert("Lỗi đồng bộ: " + error.message);
+                alert("Lỗi kết nối đồng bộ: " + error.message);
             });
     }
 
+    // Thực hiện lệnh clear trắng database
+    function executeResetData() {
+        if(confirm("CẢNH BÁO CUỐI: Bạn có thực sự chắc chắn muốn XÓA SẠCH lịch sử không?")) {
+            database.ref('attendance_history').remove()
+                .then(() => {
+                    alert("Đã xóa sạch toàn bộ dữ liệu lịch sử đám mây.");
+                })
+                .catch((error) => {
+                    alert("Lỗi khi thực thi xóa: " + error.message);
+                });
+        }
+    }
+
+    // Tạo file Excel báo cáo tổng hợp xuất ra máy tính/điện thoại
     function exportToExcel() {
         let allKeys = new Set();
         members.forEach(name => {
             Object.keys(attendanceHistory[name] || {}).forEach(key => allKeys.add(key));
         });
-        // Sắp xếp các cột theo thứ tự lịch sử
         let sortedKeys = Array.from(allKeys).sort();
 
         let excelRows = [];
@@ -334,13 +430,13 @@
                 let sessionHeader = parts[1] === "Lan 1" ? "Lần 1" : parts[1] === "Lan 2" ? "Lần 2" : parts[1] === "Sang" ? "Sáng" : "Chiều";
                 
                 let excelColumnName = `${dateHeader} (${sessionHeader})`;
-                rowData[excelColumnName] = attendanceHistory[name][key] || ""; 
+                rowData[excelColumnName] = (attendanceHistory[name] && attendanceHistory[name][key]) || ""; 
             });
             excelRows.push(rowData);
         });
 
         if(excelRows.length === 0 || sortedKeys.length === 0) {
-            alert("Chưa có dữ liệu để xuất Excel!");
+            alert("Chưa ghi nhận dữ liệu lịch sử nào trên cloud để xuất file Excel!");
             return;
         }
 
@@ -350,15 +446,7 @@
         XLSX.writeFile(workbook, `DiemDanh_ChiDoan_ThonTienHoa.xlsx`);
     }
 
-    function resetAllData() {
-        if(confirm("Bạn có chắc chắn muốn XÓA SẠCH TOÀN BỘ lịch sử điểm danh trên đám mây không?")) {
-            database.ref('attendance_history').remove()
-                .then(() => {
-                    alert("Đã xóa sạch dữ liệu đám mây.");
-                });
-        }
-    }
-
+    // Khởi chạy khi tải trang hoàn tất
     window.onload = function() {
         initDate();
         listenToFirebase();
