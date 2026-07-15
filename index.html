@@ -2582,8 +2582,56 @@ function listenToChanges(date) {
           rootElement.setAttribute("data-theme", "dark");
         }
       }
-    </script>
+      function actionSaveDateAttendance() {
+    const targetDateKey = document.getElementById("ctrlAttendanceDate").value;
+    if (!targetDateKey) return;
+
+    // Lấy trạng thái hiện tại từ giao diện
+    const attendanceData = {};
+    globalActiveMembers.forEach((member) => {
+        const checked = document.querySelector(`input[data-owner-stt="${member.stt}"][data-status-type]:checked`);
+        attendanceData[member.stt] = {
+            ten: member.name,
+            trang_thai: checked ? checked.getAttribute("data-status-type") : ""
+        };
+    });
+
+    // Lưu vào Firebase thay vì chỉ localStorage
+    const ref = firebase.database().ref('diem_danh/' + targetDateKey);
+    ref.set(attendanceData).then(() => {
+        console.log("Đã đồng bộ lên Firebase!");
+    });
     
+    // Giữ lại lưu cục bộ nếu cần dùng offline
+    localStorage.setItem(`th_v3_date_state_${targetDateKey}`, JSON.stringify(attendanceData));
+}
+    function listenToChanges(date) {
+    const ref = firebase.database().ref('diem_danh/' + date);
+    
+    ref.on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            Object.keys(data).forEach(studentId => {
+                const status = data[studentId].trang_thai;
+                
+                // Reset các checkbox của học sinh đó
+                document.querySelectorAll(`input[data-owner-stt="${studentId}"]`).forEach(cb => {
+                    cb.checked = (cb.getAttribute("data-status-type") === status);
+                });
+            });
+            // Cập nhật lại các thông số thống kê sau khi dữ liệu thay đổi
+            systemRecalculateLiveMetrics();
+        }
+    });
+}
+    function actionLoadDateAttendance() {
+    const targetDateKey = document.getElementById("ctrlAttendanceDate").value;
+    if (!targetDateKey) return;
+    
+    // Gọi hàm lắng nghe để cập nhật dữ liệu từ Firebase
+    listenToChanges(targetDateKey);
+}
+    </script>
 };
   </body>
 </html>
